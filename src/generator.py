@@ -84,42 +84,42 @@
 # # print(function_name)
 
 
-# # Build the prompt for the model. Take the user's request ("Greet Bader") and combine it with the function descriptions 
-# # into a single text string that ends right at the point where the model should start generating the function name. 
-# # The descriptions give the model the context it needs to pick correctly.
+# Build the prompt for the model. Take the user's request ("Greet Bader") and combine it with the function descriptions 
+# into a single text string that ends right at the point where the model should start generating the function name. 
+# The descriptions give the model the context it needs to pick correctly.
 
 
-# # function_descriptions_list = [item["description"] for item in fun_def]
+# function_descriptions_list = [item["description"] for item in fun_def]
 
-# # function_descriptions = " ".join(function_descriptions_list)
-# # print(function_descriptions)
+# function_descriptions = " ".join(function_descriptions_list)
+# print(function_descriptions)
 
-# vocabPath = smallLLM.get_path_to_vocab_file()
+vocabPath = smallLLM.get_path_to_vocab_file()
 
 
-# # print(helloID.tolist())
-# # print(vocabPath)
+# print(helloID.tolist())
+# print(vocabPath)
 
-# with open(vocabPath,"r") as file:
-#     vocab = json.load(file)
-# id_to_token = {int(v) : k for k,v in vocab.items()}
-# # for item in prompt_with_descriptions:
-# #     print(item)
+with open(vocabPath,"r") as file:
+    vocab = json.load(file)
+id_to_token = {int(v) : k for k,v in vocab.items()}
+# for item in prompt_with_descriptions:
+#     print(item)
 
-# # You are a function calling assistant. Available functions:
-# # - fn_add_numbers:(a: number, b: number) Add two numbers together and return their sum.
-# # - fn_greet: Generate a greeting message for a person by name.
-# # - fn_reverse_string: Reverse a string and return the reversed result.
+# You are a function calling assistant. Available functions:
+# - fn_add_numbers:(a: number, b: number) Add two numbers together and return their sum.
+# - fn_greet: Generate a greeting message for a person by name.
+# - fn_reverse_string: Reverse a string and return the reversed result.
 
-# # User prompt: "Greet Bader"
+# User prompt: "Greet Bader"
 
-# # Function call: {"name":"
-# # format json : {"prompt":(...) , "name": (...)a}
-# llm_header_prompt = "You are a function calling assistant. Available functions:"
-# func_result = ' Function call: {"name":"'
+# Function call: {"name":"
+# format json : {"prompt":(...) , "name": (...)a}
+llm_header_prompt = "You are a function calling assistant. Available functions:"
+func_result = ' Function call: {"name":"'
 
-# func_descriptions_list = ["- " + item["name"] + ": "+item["description"] for item in fun_def]
-# func_descriptions = " ".join(func_descriptions_list)
+func_descriptions_list = ["- " + item["name"] + ": "+item["description"] for item in fun_def]
+func_descriptions = " ".join(func_descriptions_list)
 
 
 # prompt_enhance = llm_header_prompt + " " + func_descriptions
@@ -137,34 +137,34 @@
 # # print(promptID)
 # # print(smallLLM.decode(promptID))
 
-# target_remain = [item["name"] for item in fun_def ]
-# # print(target_remain)
-# generated_ids = []
-# output_ID = []
-# allowed = []
-# while target_remain and any(r != "" for r in target_remain):
-#     allowed = []
-#     for func_name in target_remain:
-#         function_id = smallLLM.encode(func_name).tolist()[0]
-#         allowed.append(function_id[0])
+target_remain = [item["name"] for item in fun_def ]
+# print(target_remain)
+generated_ids = []
+output_ID = []
+allowed = []
+while target_remain and any(r != "" for r in target_remain):
+    allowed = []
+    for func_name in target_remain:
+        function_id = smallLLM.encode(func_name).tolist()[0]
+        allowed.append(function_id[0])
 
-#     logits = smallLLM.get_logits_from_input_ids(promptID + generated_ids)
+    logits = smallLLM.get_logits_from_input_ids(promptID + generated_ids)
 
-#     for index, value in enumerate(logits):
-#         if index not in allowed:
-#             logits[index] = float("-inf")
+    for index, value in enumerate(logits):
+        if index not in allowed:
+            logits[index] = float("-inf")
 
-#     next_id = logits.index(max(logits))
-#     generated_ids.append(next_id)
+    next_id = logits.index(max(logits))
+    generated_ids.append(next_id)
 
-#     token_text = id_to_token[next_id]
-#     new_remain = []
-#     for remain in target_remain:
-#         if remain.startswith(token_text):
-#             chunk = remain[len(token_text):]
-#             new_remain.append(chunk)
+    token_text = id_to_token[next_id]
+    new_remain = []
+    for remain in target_remain:
+        if remain.startswith(token_text):
+            chunk = remain[len(token_text):]
+            new_remain.append(chunk)
     
-#     target_remain = new_remain
+    target_remain = new_remain
 
 # # generated_ids_text = smallLLM.decode(generated_ids)
 # # print(len(generated_ids))
@@ -222,3 +222,81 @@
 #         tokens_value.append(next_id) 
 
 # print(smallLLM.decode(tokens_value))
+
+import re
+from typing import Any
+
+from src.models import FunctionCallOutput, FunctionDefinition, PromptInput
+
+
+def generate_output(
+    prompt: PromptInput,
+    functions: list[FunctionDefinition],
+) -> FunctionCallOutput:
+    function = select_function(prompt.prompt, functions)
+
+    return FunctionCallOutput(
+        prompt=prompt.prompt,
+        name=function.name,
+        parameters=build_parameters(function, prompt.prompt),
+    )
+
+
+def select_function(
+    prompt: str,
+    functions: list[FunctionDefinition],
+) -> FunctionDefinition:
+    """
+    Temporary implementation used only to test the pipeline.
+
+    Final version must use the LLM, not keyword rules.
+    """
+    text = prompt.lower()
+
+    for function in functions:
+        name = function.name.lower()
+
+        if ("sum" in text or "add" in text) and "add" in name:
+            return function
+
+        if "greet" in text and "greet" in name:
+            return function
+
+        if "reverse" in text and "reverse" in name:
+            return function
+
+        if "square root" in text and "square_root" in name:
+            return function
+
+        if ("replace" in text or "substitute" in text) and "substitute" in name:
+            return function
+
+    return functions[0]
+
+
+def build_parameters(
+    function: FunctionDefinition,
+    prompt: str,
+) -> dict[str, Any]:
+    parameters: dict[str, Any] = {}
+    numbers = extract_numbers(prompt)
+
+    for name, parameter in function.parameters.items():
+        if parameter.type == "string":
+            parameters[name] = ""
+
+        elif parameter.type == "number":
+            parameters[name] = numbers.pop(0) if numbers else 0.0
+
+        elif parameter.type == "integer":
+            parameters[name] = int(numbers.pop(0)) if numbers else 0
+
+        elif parameter.type == "boolean":
+            parameters[name] = False
+
+    return parameters
+
+
+def extract_numbers(prompt: str) -> list[float]:
+    matches = re.findall(r"-?\d+(?:\.\d+)?", prompt)
+    return [float(match) for match in matches]

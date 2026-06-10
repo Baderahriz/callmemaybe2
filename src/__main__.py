@@ -2,15 +2,17 @@ import argparse
 from src.models import FunctionCallOutput, FunctionDefinition, PromptInput
 from src.validator import validate_output
 from src.io_utils import load_json, write_json
+from src.generator import generate_output
 
-from llm_sdk import Small_LLM_Model
+# from llm_sdk import Small_LLM_Model
 
-small_llm = Small_LLM_Model()
+
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--functions_definition", required=True)
-    parser.add_argument("--input", required=True)
-    parser.add_argument("--output", required=True)
+    parser.add_argument("--functions_definition", default="data/input/functions_definition.json",)
+
+    parser.add_argument("--input", default="data/input/function_calling_tests.json",)
+    parser.add_argument("--output", default="data/output/function_calling_results.json",)
     return parser.parse_args()
 
 def build_manual_output_for_prompt(
@@ -122,11 +124,9 @@ def main():
         for item in raw_prompts
     ]
 
-    # manual_output = build_manual_outputs(prompts)
-
     outputs = []
-    for index, prompt in enumerate(prompts):
-        output = build_manual_output_for_prompt(index, prompt)
+    for prompt in prompts:
+        output = generate_output(prompt, functions)
     
         if not validate_output(output, functions):
             print(f"Invalid output for prompt: {prompt.prompt}")
