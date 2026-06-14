@@ -1,5 +1,5 @@
 import argparse
-from src.models import FunctionCallOutput, FunctionDefinition, PromptInput
+from src.models import FunctionDefinition, PromptInput
 from src.validator import validate_output
 from src.io_utils import load_json, write_json
 from src.generator import generate_output
@@ -9,102 +9,20 @@ from src.llm_client import LLMClient
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--functions_definition", default="data/input/functions_definition.json",)
+    parser.add_argument(
+        "--functions_definition",
+        default="data/input/functions_definition.json",
+    )
 
-    parser.add_argument("--input", default="data/input/function_calling_tests.json",)
-    parser.add_argument("--output", default="data/output/function_calling_results.json",)
+    parser.add_argument(
+        "--input",
+        default="data/input/function_calling_tests.json",
+    )
+    parser.add_argument(
+        "--output",
+        default="data/output/function_calling_results.json",
+    )
     return parser.parse_args()
-
-# def build_manual_output_for_prompt(
-#     index: int,
-#     prompt: PromptInput,
-# ) -> FunctionCallOutput:
-#     manual_parameters = [
-#         {
-#             "name": "fn_add_numbers",
-#             "parameters": {
-#                 "a": 2.0,
-#                 "b": 3.0,
-#             },
-#         },
-#         {
-#             "name": "fn_add_numbers",
-#             "parameters": {
-#                 "a": 265.0,
-#                 "b": 345.0,
-#             },
-#         },
-#         {
-#             "name": "fn_greet",
-#             "parameters": {
-#                 "name": "shrek",
-#             },
-#         },
-#         {
-#             "name": "fn_greet",
-#             "parameters": {
-#                 "name": "john",
-#             },
-#         },
-#         {
-#             "name": "fn_reverse_string",
-#             "parameters": {
-#                 "s": "hello",
-#             },
-#         },
-#         {
-#             "name": "fn_reverse_string",
-#             "parameters": {
-#                 "s": "world",
-#             },
-#         },
-#         {
-#             "name": "fn_get_square_root",
-#             "parameters": {
-#                 "a": 16.0,
-#             },
-#         },
-#         {
-#             "name": "fn_get_square_root",
-#             "parameters": {
-#                 "a": 144.0,
-#             },
-#         },
-#         {
-#             "name": "fn_substitute_string_with_regex",
-#             "parameters": {
-#                 "source_string": "Hello 34 I'm 233 years old",
-#                 "regex": "\\d+",
-#                 "replacement": "NUMBERS",
-#             },
-#         },
-#         {
-#             "name": "fn_substitute_string_with_regex",
-#             "parameters": {
-#                 "source_string": "Programming is fun",
-#                 "regex": "[aeiouAEIOU]",
-#                 "replacement": "*",
-#             },
-#         },
-#         {
-#             "name": "fn_substitute_string_with_regex",
-#             "parameters": {
-#                 "source_string": "The cat sat on the mat with another cat",
-#                 "regex": "cat",
-#                 "replacement": "dog",
-#             },
-#         },
-#     ]
-
-#     item = manual_parameters[index]
-
-#     return FunctionCallOutput.model_validate(
-#         {
-#             "prompt": prompt.prompt,
-#             "name": item["name"],
-#             "parameters": item["parameters"],
-#         }
-#     )
 
 
 def main():
@@ -127,7 +45,7 @@ def main():
     outputs = []
     for prompt in prompts:
         output = generate_output(prompt, functions, client)
-    
+
         if not validate_output(output, functions):
             print(f"Invalid output for prompt: {prompt.prompt}")
 
@@ -152,8 +70,8 @@ if __name__ == "__main__":
     main()
 
 
-# client = LLMClient()                      # load model ONCE, not per prompt
-
+# client = LLMClient()  # load model ONCE, not per prompt
+#
 #     outputs = []
 #     for prompt in prompts:
 #         output = generate_output(prompt, functions, client)
@@ -161,5 +79,5 @@ if __name__ == "__main__":
 #             print(f"Invalid output for prompt: {prompt.prompt}")
 #             return
 #         outputs.append(output.model_dump())
-
+#
 #     write_json(args.output, outputs)

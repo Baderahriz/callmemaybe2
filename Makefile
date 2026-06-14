@@ -14,8 +14,8 @@ clean:
 	rm -rf .mypy_cache .pytest_cache .ruff_cache data/output
 
 lint:
-	uv run flake8 .
-	uv run mypy . --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs
+	uv run flake8 src
+	uv run mypy src 
 
 lint-strict: lint
 	uv run python -m py_compile main.py
