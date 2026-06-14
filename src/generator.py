@@ -1,302 +1,137 @@
-# # 1. Build system prompt with function descriptions
-# # 2. Append: User request: "Greet john"
-# # 3. Append: {"name":"           ← force this prefix
-# # 4. Call pick_from_options(["fn_add_numbers", "fn_greet", "fn_reverse_string"])
-# #    → model picks "fn_greet"
-# # 5. Force: ","parameters":{
-# # 6. Look up parameters for fn_greet → ["name"]
-# # 7. Force: "name":"
-# # 8. Call generate_string_value()
-# #    → model generates "john"
-# # 9. Force: "}}
-# # 10. Parse the complete JSON and return the result
-
-
-# # 1. Build the system prompt:
-# #    - Header: "You are a function calling assistant."
-# #    - For each function in functions:
-# #      - Add: "- {name}: {description}. Parameters: {param list}"
-# #    - Add: 'User request: "{prompt}"'
-# #    - Add: 'Function call: {"name":"'
-
-
-
-
-
-
-# # 2. Encode the system prompt to get prompt_ids
-
-# # 3. STAGE 1 — Pick the function name:
-# #    - options = [f.name for f in functions]
-# #    - chosen_function_name, new_tokens = pick_from_options(options, prompt_ids, model)
-# #    - Append new_tokens to prompt_ids
-# #    - Look up which FunctionDefinition matches chosen_function_name
-   
-# # 4. Force the structural part: '","parameters":{'
-# #    - new_tokens = force_string('","parameters":{', prompt_ids, model)
-# #    - Append new_tokens to prompt_ids
-   
-# # 5. STAGE 2 — Generate each parameter:
-# #    - parameters_dict = {}
-# #    - For each (param_name, param_type) in chosen function's parameters:
-# #      - Force the key: '"{param_name}":'
-# #      - If param_type == "string":
-# #        - Force opening quote: '"'
-# #        - value, new_tokens = generate_string_value(prompt_ids, model)
-# #        - parameters_dict[param_name] = value
-# #      - If param_type == "number":
-# #        - value, new_tokens = generate_number(prompt_ids, model)
-# #        - parameters_dict[param_name] = value
-# #      - If param_type == "boolean":
-# #        - value, new_tokens = pick_from_options(["true","false"], prompt_ids, model)
-# #        - parameters_dict[param_name] = (value == "true")
-# #      - Append new_tokens to prompt_ids
-# #      - If not the last parameter, force ","
-   
-# # 6. Build the result object:
-# #    - { "prompt": prompt, "name": chosen_function_name, "parameters": parameters_dict }
-
-# # 7. Return result
-
-# from llm_sdk.llm_sdk import Small_LLM_Model
-# import json
-# smallLLM = Small_LLM_Model()
-
-# prompt = "Greet Bader"
-# import json
-
-# # output = f'["prompt": "{prompt}"]'
-# try:
-#     with open('data/input/functions_definition.json') as fun_def:
-#         fun_def = json.load(fun_def)
-# except FileNotFoundError:
-#     print("Error: functions_definition.json not found")
-#     exit(1)
-# except json.JSONDecodeError:
-#     print("Error: functions_definition.json contains invalid JSON")
-#     exit(1)
-# with open('data/input/function_calling_tests.json') as fun_call:
-#     fun_call = json.load(fun_call)
-
-# # for item in fun_def:
-# #     print(item["description"])
-# # function_name = [item["name"] for item in fun_def]
-# # print(function_name)
-
-
-# Build the prompt for the model. Take the user's request ("Greet Bader") and combine it with the function descriptions 
-# into a single text string that ends right at the point where the model should start generating the function name. 
-# The descriptions give the model the context it needs to pick correctly.
-
-
-# function_descriptions_list = [item["description"] for item in fun_def]
-
-# function_descriptions = " ".join(function_descriptions_list)
-# print(function_descriptions)
-
-vocabPath = smallLLM.get_path_to_vocab_file()
-
-
-# print(helloID.tolist())
-# print(vocabPath)
-
-with open(vocabPath,"r") as file:
-    vocab = json.load(file)
-id_to_token = {int(v) : k for k,v in vocab.items()}
-# for item in prompt_with_descriptions:
-#     print(item)
-
-# You are a function calling assistant. Available functions:
-# - fn_add_numbers:(a: number, b: number) Add two numbers together and return their sum.
-# - fn_greet: Generate a greeting message for a person by name.
-# - fn_reverse_string: Reverse a string and return the reversed result.
-
-# User prompt: "Greet Bader"
-
-# Function call: {"name":"
-# format json : {"prompt":(...) , "name": (...)a}
-llm_header_prompt = "You are a function calling assistant. Available functions:"
-func_result = ' Function call: {"name":"'
-
-func_descriptions_list = ["- " + item["name"] + ": "+item["description"] for item in fun_def]
-func_descriptions = " ".join(func_descriptions_list)
-
-
-# prompt_enhance = llm_header_prompt + " " + func_descriptions
-
-# prompt_with_descriptions = [ prompt_enhance + " User request:" + '"' + item["prompt"] + '"' + func_result  for item in fun_call]
-
-# # for item in prompt_with_descriptions:
-# #     print(item)
-
-# # print(prompt_with_descriptions[5])
-
-
-# promptID = smallLLM.encode(prompt_with_descriptions[2]).tolist()[0]
-
-# # print(promptID)
-# # print(smallLLM.decode(promptID))
-
-target_remain = [item["name"] for item in fun_def ]
-# print(target_remain)
-generated_ids = []
-output_ID = []
-allowed = []
-while target_remain and any(r != "" for r in target_remain):
-    allowed = []
-    for func_name in target_remain:
-        function_id = smallLLM.encode(func_name).tolist()[0]
-        allowed.append(function_id[0])
-
-    logits = smallLLM.get_logits_from_input_ids(promptID + generated_ids)
-
-    for index, value in enumerate(logits):
-        if index not in allowed:
-            logits[index] = float("-inf")
-
-    next_id = logits.index(max(logits))
-    generated_ids.append(next_id)
-
-    token_text = id_to_token[next_id]
-    new_remain = []
-    for remain in target_remain:
-        if remain.startswith(token_text):
-            chunk = remain[len(token_text):]
-            new_remain.append(chunk)
-    
-    target_remain = new_remain
-
-# # generated_ids_text = smallLLM.decode(generated_ids)
-# # print(len(generated_ids))
-
-# new_prompt = promptID + generated_ids
-# paramter_id = smallLLM.encode('","parameters":{').tolist()[0]
-# new_prompt = new_prompt + paramter_id
-# print(smallLLM.decode(new_prompt))
-# # print(smallLLM.decode(generated_ids))
-
-# func_name = smallLLM.decode(generated_ids)
-
-# paramters = [ item["parameters"] for item in fun_def if item["name"] == func_name]
-# print(paramters)
-# print(type(paramters))
-
-# quote_id = smallLLM.encode('"').tolist()[0]
-# # print(quote_id)
-
-
-# param_name = list(paramters[0].keys())[0]   # "name"
-# key_str = '"' + param_name + '":"'           # '"name":"'
-# key_ids = smallLLM.encode(key_str).tolist()[0]
-# new_prompt = new_prompt + key_ids
-
-
-# import string
-# allowed_chars = string.ascii_letters + string.digits + " "
-# allowed_string_tokens = []
-
-# for ch in allowed_chars:
-#     ids = smallLLM.encode(ch).tolist()[0]
-#     allowed_string_tokens.append(ids[0])
-
-# print(len(smallLLM.decode(allowed_string_tokens)))
-
-# allowed_tokens = allowed_string_tokens + quote_id
-# tokens_value = []
-# counter = 0
-# while counter < 50:
-#     counter += 1
-#     logits = smallLLM.get_logits_from_input_ids(new_prompt + tokens_value)
-    
-#     for index, value in enumerate(logits):
-#         if index not in allowed_tokens:
-#             logits[index] = float("-inf")
-
-#     next_id = logits.index(max(logits))
-#     print(f"Step {counter}: picked '{id_to_token[next_id]}' (id {next_id})")
-    
-#     if next_id == quote_id[0]:
-#         print("  → closing quote, stopping")
-#         break
-#     else:
-#         tokens_value.append(next_id) 
-
-# print(smallLLM.decode(tokens_value))
-
-import re
-from typing import Any
-
 from src.models import FunctionCallOutput, FunctionDefinition, PromptInput
+from src.llm_client import LLMClient
+
+
+def build_function_call_prompt(
+    prompt: PromptInput,
+    functions: list[FunctionDefinition],
+) -> str:
+    lines = ["You are a function calling assistant.(You are a parameter extraction engine.Extract the function parameters from the user request.Use the exact parameter names.Do not add extra keys.Do not explain.Return only a valid JSON object. ) Available functions:"]
+    func_descriptions_list = ["- " + item.name + ": "+item.description for item in functions]
+    lines.append("\n".join(func_descriptions_list))
+
+    lines.append(f'User request: "{prompt.prompt}"')
+    lines.append('Function call: {"name": "')
+
+    return "\n".join(lines)
+
+
+def select_function_with_llm(
+    prompt: PromptInput,
+    functions: list[FunctionDefinition],
+    client: LLMClient,
+):
+    system_prompt = build_function_call_prompt(prompt, functions)
+    prompt_ids = client.encode(system_prompt)
+
+    options = [function.name for function in functions]
+    allowed = []
+    generated_ids = []
+    while options and any(r != "" for r in options):
+        allowed = []
+        for func_name in options:
+            function_id = client.encode(func_name)
+            allowed.append(function_id[0])
+        logits = client.get_logits(prompt_ids + generated_ids)
+        for index, item in enumerate(logits):
+            if index not in allowed:
+                logits[index] = float("-inf")
+                
+        next_token = logits.index(max(logits))
+        generated_ids.append(next_token)
+        next_text = client.decode([next_token])
+        new_options = []
+        for remain in options:
+            if remain.startswith(next_text):
+                chunk = remain[len(next_text):]
+                new_options.append(chunk)
+        options = new_options
+    result = prompt_ids + generated_ids
+    selected_fun = client.decode(generated_ids)
+    return (result, selected_fun, functions)
+
+
+def extract_parameters(prompt_context_ids, selected, functions, client):
+    params = {}
+    is_last = False
+    selected = next((f for f in functions if f.name == selected))
+    ordered_params = selected.parameters
+    paramter_ids = client.encode('", "parameters": {')
+    prompt_context_ids += paramter_ids
+
+    def find_string():
+        value_ids = []
+        for _ in range(66):
+            logits = client.get_logits(prompt_context_ids + value_ids)
+            next_token = logits.index(max(logits))
+            piece = client.decode([next_token])
+            if '"' in piece:
+                chunk = piece.split('"')
+                value_ids += client.encode(chunk[0])
+                break
+            value_ids.append(next_token)
+        return value_ids
+    
+    def find_paramter(client):
+        digit_tokens = {client.encode(d)[0] for d in "0123456789."}
+        comma = client.encode(",")[0]
+        brace = client.encode("}")[0]
+        allowed = digit_tokens | {comma, brace}
+        value_ids = []
+        for _ in range(35):
+            logits = client.get_logits(prompt_context_ids + value_ids)
+            for index in range(len(logits)):
+                if index not in allowed:
+                    logits[index] = float("-inf")
+            next_token = logits.index(max(logits))
+            if next_token in (comma, brace):
+                break
+            value_ids.append(next_token)
+        return value_ids
+
+    for i, (key, value) in enumerate(ordered_params.items()):
+        is_last = (i == len(ordered_params) - 1)
+        prompt_context_ids += client.encode(f'"{key}":')
+        value_ids = []
+        if value.type in ("number", "integer"):
+            value_ids = find_paramter(client)
+            raw = client.decode(value_ids).strip()
+            if value.type == "number":
+                params[key] = float(raw) if raw else 0.0
+            else:
+                params[key] = int(raw) if raw else 0
+
+        else:
+            quote = client.encode('"')[0]
+            prompt_context_ids += [quote]
+            value_ids = find_string()
+            raw = client.decode(value_ids).strip()
+            params[key] = raw
+        
+        prompt_context_ids += value_ids
+        prompt_context_ids += client.encode("}" if is_last else ",")
+
+    return params
 
 
 def generate_output(
     prompt: PromptInput,
     functions: list[FunctionDefinition],
+    client: LLMClient,
 ) -> FunctionCallOutput:
-    function = select_function(prompt.prompt, functions)
-
-    return FunctionCallOutput(
+     prompt_ids, selected_fun, functions = select_function_with_llm(prompt, functions, client)
+     return FunctionCallOutput(
         prompt=prompt.prompt,
-        name=function.name,
-        parameters=build_parameters(function, prompt.prompt),
+        name=selected_fun,
+        parameters=extract_parameters(prompt_ids, selected_fun, functions, client)
     )
 
 
-def select_function(
-    prompt: str,
-    functions: list[FunctionDefinition],
-) -> FunctionDefinition:
-    """
-    Temporary implementation used only to test the pipeline.
-
-    Final version must use the LLM, not keyword rules.
-    """
-    text = prompt.lower()
-
-    for function in functions:
-        name = function.name.lower()
-
-        if ("sum" in text or "add" in text) and "add" in name:
-            return function
-
-        if "greet" in text and "greet" in name:
-            return function
-
-        if "reverse" in text and "reverse" in name:
-            return function
-
-        if "square root" in text and "square_root" in name:
-            return function
-
-        if ("replace" in text or "substitute" in text) and "substitute" in name:
-            return function
-
-    return functions[0]
 
 
-def build_parameters(
-    function: FunctionDefinition,
-    prompt: str,
-) -> dict[str, Any]:
-    parameters: dict[str, Any] = {}
-    numbers = extract_numbers(prompt)
-
-    for name, parameter in function.parameters.items():
-        if parameter.type == "string":
-            parameters[name] = ""
-
-        elif parameter.type == "number":
-            parameters[name] = numbers.pop(0) if numbers else 0.0
-
-        elif parameter.type == "integer":
-            parameters[name] = int(numbers.pop(0)) if numbers else 0
-
-        elif parameter.type == "boolean":
-            parameters[name] = False
-
-    return parameters
+#commande moulinette data dyalhom
+# cd moulinette ; uv run python -m moulinette grade_student_answers  --set private  --student_answer_path ../data/output/function_calling_results.json
 
 
-def extract_numbers(prompt: str) -> list[float]:
-    matches = re.findall(r"-?\d+(?:\.\d+)?", prompt)
-    return [float(match) for match in matches]
+#commande moulinette data dyali
+# cd moulinette ; uv run python -m moulinette grade_student_answers   --student_answer_path ../data/output/function_calling_results.json
