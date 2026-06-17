@@ -1,9 +1,22 @@
 from src.models import FunctionDefinition
 from src.llm_client import LLMClient
+from typing import Any
 
 
-def decode_string(client: LLMClient, prompt_context_ids: list[int]) -> list[int]:
-    value_ids = []
+def decode_string(
+    client: LLMClient,
+    prompt_context_ids: list[int],
+) -> list[int]:
+    """Decode a quoted string value from the LLM token stream.
+
+    Args:
+        client: LLM client used to query logits and decode tokens.
+        prompt_context_ids: Current token context to condition on.
+
+    Returns:
+        Token ids representing the decoded string value.
+    """
+    value_ids: list[int] = []
     for _ in range(66):
         logits = client.get_logits(prompt_context_ids + value_ids)
         next_token = logits.index(max(logits))
@@ -16,12 +29,25 @@ def decode_string(client: LLMClient, prompt_context_ids: list[int]) -> list[int]
     return value_ids
 
 
-def decode_number(client: LLMClient, prompt_context_ids: list[int]) -> list[int]:
+def decode_number(
+    client: LLMClient,
+    prompt_context_ids: list[int],
+) -> list[int]:
+    """Decode a numeric token sequence from the LLM token stream.
+
+    Args:
+        client: LLM client used to query logits and decode tokens.
+        prompt_context_ids: Current token context to condition on.
+
+    Returns:
+        Token ids representing the decoded numeric value.
+    """
     digit_tokens = {client.encode(d)[0] for d in "0123456789."}
     comma = client.encode(",")[0]
     brace = client.encode("}")[0]
-    allowed = digit_tokens | {comma, brace}
-    value_ids = []
+    minus = client.encode("-")[0]
+    allowed = digit_tokens | {comma, brace, minus}
+    value_ids: list[int] = []
     for _ in range(35):
         logits = client.get_logits(prompt_context_ids + value_ids)
         for index in range(len(logits)):
@@ -34,14 +60,33 @@ def decode_number(client: LLMClient, prompt_context_ids: list[int]) -> list[int]
     return value_ids
 
 
-def extract_parameters(prompt_context_ids: list[int],
+def extract_parameters(
+    prompt_context_ids: list[int],
     selected: str,
     functions: list[FunctionDefinition],
-    client: LLMClient)-> dict[str, object]:
-    params = {}
+    client: LLMClient,
+) -> dict[str, Any]:
+    """Extract parameters for the selected function using the LLM client.
+
+    Args:
+        prompt_context_ids: Token ids forming the current prompt context.
+        selected: The selected function name.
+        functions: List of available function definitions.
+        client: LLM client used for decoding parameter values.
+
+    Returns:
+        A mapping of parameter names to decoded Python values.
+    """
+    params: dict[str, Any] = {}
     is_last = False
-    selected = next((f for f in functions if f.name == selected))
-    ordered_params = selected.parameters
+    selected_function = None
+    for function in functions:
+        if function.name == selected:
+            selected_function = function
+            break
+    if selected_function is None:
+        return {}
+    ordered_params = selected_function.parameters
     paramter_ids = client.encode('", "parameters": {')
     prompt_context_ids += paramter_ids
 

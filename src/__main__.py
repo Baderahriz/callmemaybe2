@@ -4,10 +4,17 @@ from src.validator import validate_output
 from src.io_utils import load_json, write_json
 from src.generator import generate_output
 from src.llm_client import LLMClient
-# from llm_sdk import Small_LLM_Model
+from argparse import Namespace
+import sys
+from pydantic import ValidationError
 
 
-def parse_args():
+def parse_args() -> Namespace:
+    """Parse command line arguments for the CLI.
+
+    Returns:
+        An argparse `Namespace` with parsed CLI options.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--functions_definition",
@@ -25,59 +32,45 @@ def parse_args():
     return parser.parse_args()
 
 
-def main():
+def main() -> None:
+    """Run the full pipeline: load, generate, validate, and write results.
+
+    This function is the CLI entrypoint. It loads function definitions
+    and prompts, runs the generator, validates outputs, and writes
+    the final JSON file.
+    """
     args = parse_args()
     raw_functions = load_json(args.functions_definition)
     raw_prompts = load_json(args.input)
 
-    functions = [
-        FunctionDefinition.model_validate(item)
-        for item in raw_functions
-    ]
-
-    prompts = [
-        PromptInput.model_validate(item)
-        for item in raw_prompts
-    ]
+    try:
+        functions = [
+            FunctionDefinition.model_validate(item)
+            for item in raw_functions
+        ]
+        prompts = [
+            PromptInput.model_validate(item)
+            for item in raw_prompts
+        ]
+    except ValidationError as exc:
+        print(f"Error: input does not match expected schema:\n{exc}")
+        sys.exit(1)
 
     client = LLMClient()
 
     outputs = []
     for prompt in prompts:
-        output = generate_output(prompt, functions, client)
+        try:
+            output = generate_output(prompt, functions, client)
 
-        if not validate_output(output, functions):
-            print(f"Invalid output for prompt: {prompt.prompt}")
+            if not validate_output(output, functions):
+                print(f"Invalid output for prompt: {prompt.prompt}")
 
-        outputs.append(output.model_dump())
-
+            outputs.append(output.model_dump())
+        except Exception as exc:
+            print(f"Failed to process prompt '{prompt.prompt}': {exc}")
     write_json(args.output, outputs)
-
-    # all_valid = True
-
-    # for output in manual_output:
-    #     if not validate_output(output, functions):
-    #         all_valid = False
-
-    # if all_valid:
-    #     out = [output.model_dump() for output in manual_output]
-    #     write_json(args.output, out)
-    # else:
-    #     print("At least one json is invalid")
 
 
 if __name__ == "__main__":
     main()
-
-
-# client = LLMClient()  # load model ONCE, not per prompt
-#
-#     outputs = []
-#     for prompt in prompts:
-#         output = generate_output(prompt, functions, client)
-#         if not validate_output(output, functions):
-#             print(f"Invalid output for prompt: {prompt.prompt}")
-#             return
-#         outputs.append(output.model_dump())
-#
-#     write_json(args.output, outputs)

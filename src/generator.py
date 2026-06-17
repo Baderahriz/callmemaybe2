@@ -1,7 +1,7 @@
 from src.models import FunctionCallOutput, FunctionDefinition, PromptInput
 from src.llm_client import LLMClient
 from src.selector import select_function_with_llm
-from src.decoder import extract_parameters
+from src.extract_paramters import extract_parameters
 
 
 def generate_output(
@@ -9,6 +9,19 @@ def generate_output(
     functions: list[FunctionDefinition],
     client: LLMClient,
 ) -> FunctionCallOutput:
+    """Generate a FunctionCallOutput for the given prompt.
+
+    The pipeline selects a function and extracts parameters using the LLM
+    client, then builds a `FunctionCallOutput` instance.
+
+    Args:
+        prompt: The prompt input to process.
+        functions: Available function definitions.
+        client: LLM client used for selection and extraction.
+
+    Returns:
+        A `FunctionCallOutput` with `name` and `parameters` filled.
+    """
     prompt_ids, selected_fun, functions = select_function_with_llm(
         prompt,
         functions,

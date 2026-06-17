@@ -8,11 +8,27 @@ def select_function_with_llm(
     functions: list[FunctionDefinition],
     client: LLMClient,
 ) -> tuple[list[int], str, list[FunctionDefinition]]:
+    """Select a function using the LLM.
+
+    Uses the LLM client to autocomplete a function name from the
+    available `functions` given the user `prompt`.
+
+    Args:
+        prompt: The user prompt to evaluate.
+        functions: Available function definitions to choose from.
+        client: LLM client used to query the model.
+
+    Returns:
+        A tuple of `(prompt_ids, selected_name, functions)` where
+        `prompt_ids` are token ids of the system prompt,
+        `selected_name` is the decoded function name, and
+        `functions` is the passed list.
+    """
     system_prompt = build_function_call_prompt(prompt, functions)
     prompt_ids = client.encode(system_prompt)
 
     options = [function.name for function in functions]
-    generated_ids = []
+    generated_ids: list[int] = []
     while options and any(r != "" for r in options):
         allowed = []
         for func_name in options:

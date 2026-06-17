@@ -4,6 +4,15 @@ from src.models import FunctionCallOutput, FunctionDefinition, JsonType
 
 
 def is_valid_type(value: Any, expected_type: JsonType) -> bool:
+    """Check whether a value matches an expected JSON type.
+
+    Args:
+        value: The value to check.
+        expected_type: One of the JSON type literals.
+
+    Returns:
+        True if `value` matches `expected_type`, otherwise False.
+    """
     if expected_type == "string":
         return isinstance(value, str)
 
@@ -23,6 +32,15 @@ def validate_output(
     output: FunctionCallOutput,
     functions: list[FunctionDefinition],
 ) -> bool:
+    """Validate a FunctionCallOutput against function definitions.
+
+    Args:
+        output: The function call output to validate.
+        functions: Available function definitions to validate against.
+
+    Returns:
+        True if `output` matches a function signature and types, else False.
+    """
     selected_function = None
 
     for function in functions:

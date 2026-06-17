@@ -5,6 +5,15 @@ def build_function_call_prompt(
     prompt: PromptInput,
     functions: list[FunctionDefinition],
 ) -> str:
+    """Build the system prompt describing functions for the LLM.
+
+    Args:
+        prompt: The user's prompt to include in the system message.
+        functions: List of function definitions to describe.
+
+    Returns:
+        A string suitable as a system prompt for the LLM.
+    """
     lines = [
         "You are a function calling assistant. (You are a parameter "
         "extraction engine. Extract the function parameters from the user "
